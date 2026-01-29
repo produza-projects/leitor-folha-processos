@@ -43,11 +43,13 @@ function buscar() {
 
     showMessage("Folha de processo encontrada!", "green");
 
-    document.getElementById("serial").value = "";
-    document.getElementById("serial").focus();
   })
   .catch(err => {
     showMessage(err.detail || "Erro ao buscar o arquivo.", "red");
+  })
+  .finally(() => {
+    document.getElementById("serial").value = "";
+    document.getElementById("serial").focus();
   });
 
 }
