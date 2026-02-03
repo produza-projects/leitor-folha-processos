@@ -68,12 +68,12 @@ def buscar(serial: str):
     return response
 
 # Endpoint de debug
-# @app.get("/status")
-# def status():
-#     return {
-#         "registros": len(db_cache.cache),
-#         "ultima_atualizacao": db_cache.last_modified
-#     }
+@app.get("/status")
+def status():
+    return {
+        "registros": len(db_cache.cache),
+        "ultima_atualizacao": db_cache.last_modified
+    }
 
 # Caminho do frontend
 FRONTEND_PATH = os.path.join(os.path.dirname(__file__), "..", "frontend")
