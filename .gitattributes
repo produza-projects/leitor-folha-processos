@@ -1,0 +1,23 @@
+# Texto em geral
+* text=auto
+
+# Python
+*.py text eol=lf
+*.pyi text eol=lf
+
+# Configurações comuns
+*.json text eol=lf
+*.yml  text eol=lf
+*.yaml text eol=lf
+*.toml text eol=lf
+*.ini  text eol=lf
+*.cfg  text eol=lf
+*.env  text eol=lf
+
+# Shell / Docker
+*.sh text eol=lf
+Dockerfile text eol=lf
+
+# Documentação
+*.md text eol=lf
+*.rst text eol=lf
