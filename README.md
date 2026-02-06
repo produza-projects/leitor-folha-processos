@@ -9,7 +9,7 @@
 ![Bootstrap](https://img.shields.io/badge/Bootstrap-5.3.3-7952B3?logo=bootstrap&logoColor=white)
 
 
-Aplicação web interna para leitura de serial number, via digitação manual ou QR Code, e visualização da folha de processos em PDF diretamente no navegador.
+Aplicação web interna para consulta e visualização de folhas de processos em PDF através de OF (Ordem de Fabricação), via digitação manual ou leitura de QR Code.
 
 ## Índice
 
@@ -18,25 +18,25 @@ Aplicação web interna para leitura de serial number, via digitação manual ou
 - [Tecnologias Utilizadas](#tecnologias-utilizadas)
 - [Instalação](#instalação)
 - [Como Usar](#como-usar)
-- [Estrutura do Projeto](#estrutura-do-projeto)
+- [Estrutura Técnica](#estrutura-técnica)
 - [Licença](#licença)
 
 ## Sobre o Projeto
 
-O **Leitor de Folha de Processos** é uma solução web desenvolvida para facilitar o acesso rápido e eficiente a documentos de processos através da leitura de serial numbers. A aplicação permite que os usuários localizem e visualizem folhas de processos em formato PDF de forma intuitiva e prática.
+O **Leitor de Folha de Processos** facilita o acesso rápido a documentos de processos produtivos através da consulta por OF (Ordem de Fabricação).
 
-### Problema Resolvido
+### Benefícios
 
-- Elimina a necessidade de busca manual em arquivos no sistema, permitindo acesso instantâneo aos documentos através da leitura de códigos. 
-- Elimina a bloqueio à edição dos arquivos caso estejam abertos em outros máquinas.
+- **Acesso instantâneo**: Localização de documentos sem busca manual no sistema de arquivos
+- **Visualização simultânea**: Permite que múltiplos usuários consultem o mesmo documento sem bloqueio de edição
+- **Interface simplificada**: Reduz tempo de consulta com design intuitivo
 
 ## Funcionalidades
 
-- **Digitação Manual**: Insira o serial number manualmente para buscar o documento
-- **Leitura de QR Code**: Escaneie QR Codes para acesso instantâneo
-- **Visualização em PDF**: Exiba os documentos diretamente no navegador
-- **Interface Intuitiva**: Design simples e responsivo para facilitar o uso
-- **Acesso Rápido**: Localização instantânea de documentos
+- Consulta por digitação manual da OF
+- Leitura de QR Code para acesso instantâneo
+- Visualização de PDF diretamente no navegador
+- Interface responsiva
 
 ## Tecnologias Utilizadas
 
@@ -49,6 +49,9 @@ O **Leitor de Folha de Processos** é uma solução web desenvolvida para facili
 - **JavaScript**
 - **CSS3**
 - **Bootstrap 5.3.3**
+
+### Banco de dados
+- MariaDB
 
 ### Outras Dependências
 - Bibliotecas Python (conforme `requirements.txt`)
@@ -64,7 +67,7 @@ git clone https://github.com/produza-projects/leitor-folha-processos.git
 cd leitor-folha-processos
 ```
 
-### 2. Crie um ambiente virtual
+### 2. Configure o ambiente virtual
 
 **Linux/macOS:**
 ```bash
@@ -86,45 +89,71 @@ pip install -r requirements.txt
 
 ### 4. Configure as variáveis de ambiente
 
+Crie um arquivo `.env` na raiz do projeto com as credenciais do banco de dados:
 ```env
-CAMINHO_DATABASE_FP=
+DB_HOST=seu_host_mariadb
+DB_USER=seu_usuario
+DB_PASSWORD=sua_senha
+DB_NAME=nome_do_banco
+DB_PORT=3306
+DB_TABELA_FOLHAS=nome_da_tabela
 ```
 
-### 5. Execute a aplicação
+> **Nota**: Solicite as credenciais ao administrador do sistema.
 
+### 5. Execute a aplicação
 ```bash
 uvicorn backend.main:app --reload
 ```
 
+> Por padrão, a aplicação será iniciada em http://127.0.0.1:8000. Para personalizar host e porta, use: uvicorn backend.main:app --host 0.0.0.0 --port 8080
+
 ## Como Usar
 
-### Método 1: Digitação Manual
+### Digitação Manual
 
-1. Acesse a aplicação no navegador
-2. Digite o serial number no campo de entrada
-3. Clique em "Buscar" ou pressione Enter
-4. O PDF será exibido automaticamente, caso exista
+1. Digite a OF no campo de entrada
+2. Pressione Enter ou clique em "Buscar"
+3. O PDF será exibido se existir
 
-### Método 2: QR Code
+### QR Code
 
-1. Acesse a aplicação no navegador
-2. Faça a leitura do QR Code
-3. O PDF será carregado automaticamente, caso exista
+1. Clique no botão de leitura de QR Code
+2. Escaneie o código
+3. O PDF será carregado automaticamente
 
-## Estrutura do Projeto
+## Estrutura Técnica
 
+### Arquitetura
+
+**Fluxo de requisição**:
 ```
-leitor-folha-processos/
-├── backend/                # Código do servidor backend
-│   ├── main.py               # Arquivo principal da aplicação
-├── frontend/               # Arquivos do frontend
-│   ├── index.html            # Página principal
-│   ├── js/                   # Scripts JavaScript
-├── .gitignore              # Arquivos ignorados pelo Git
-├── LICENSE                 # Licença MIT
-├── requirements.txt        # Dependências Python
-└── README.md               # Este arquivo
+┌─────────┐      ┌─────────┐      ┌─────────┐      ┌──────────┐
+│Frontend │─────>│ FastAPI │─────>│ MariaDB │      │Arquivo   │
+│(HTML/JS)│      │(Backend)│      │         │      │PDF (rede)│
+└─────────┘      └─────────┘      └─────────┘      └──────────┘
+     ▲                │                 │                 │
+     │                └─────────────────┴─────────────────┘
+     │                          (Backend busca PDF)
+     └────────────────────────────────────────────────────┘
+                         (Serve PDF)
 ```
+
+1. Usuário insere OF
+2. Backend consulta caminho do PDF no MariaDB
+3. Backend localiza e lê o arquivo PDF na rede
+4. PDF é servido para visualização no navegador
+
+### Banco de Dados
+
+**Tabela de Processos**:
+
+| Campo     | Tipo    | Descrição                    |
+|-----------|---------|------------------------------|
+| `of`      | INT     | Ordem de Fabricação (chave)  |
+| `caminho` | VARCHAR | Caminho do PDF na rede       |
+
+**Conexão**: PyMySQL + MariaDB (configurado via `.env`)
 
 ## Licença
 
