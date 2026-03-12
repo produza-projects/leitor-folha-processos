@@ -1,5 +1,5 @@
 from fastapi import FastAPI, HTTPException
-from fastapi.responses import FileResponse
+from fastapi.responses import StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from dotenv import load_dotenv
@@ -19,6 +19,15 @@ app.add_middleware(
 )
 
 
+def _iter_pdf_file(path: str, chunk_size: int = 1024 * 1024):
+    with open(path, "rb") as file:
+        while True:
+            chunk = file.read(chunk_size)
+            if not chunk:
+                break
+            yield chunk
+
+
 @app.get("/buscar/{serial}")
 def buscar(serial: str):
     resultado = buscar_pdf(serial)
@@ -29,22 +38,28 @@ def buscar(serial: str):
             detail="Essa folha de processo não está no sistema! Favor, informar Engenharia Industrial."
         )
 
-    caminho_pdf = resultado['caminho']
+    caminho_pdf = resultado["caminho"]
 
     if not os.path.exists(caminho_pdf):
         raise HTTPException(
             status_code=404,
             detail="Arquivo PDF não encontrado no caminho informado."
         )
-    
-    #Cria a resposta e adiciona headers para desabilitar cache
-    response = FileResponse(
-        path=caminho_pdf,
-        media_type="application/pdf",
-        filename=os.path.basename(caminho_pdf)
-    )
-    
-    # Adiciona headers para desabilitar cache do navegador
+
+    try:
+        response = StreamingResponse(
+            _iter_pdf_file(caminho_pdf),
+            media_type="application/pdf",
+        )
+    except OSError:
+        raise HTTPException(
+            status_code=500,
+            detail="Erro ao ler o arquivo PDF."
+        )
+
+    filename = os.path.basename(caminho_pdf)
+
+    response.headers["Content-Disposition"] = f'inline; filename="{filename}"'
     response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
     response.headers["Pragma"] = "no-cache"
     response.headers["Expires"] = "0"

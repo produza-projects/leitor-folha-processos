@@ -20,37 +20,34 @@ function buscar() {
   }
 
   fetch(`/buscar/${serial}`)
-  .then(async response => {
-    if (response.status === 404) {
-      throw { detail: "Folha de processo não encontrado! Favor, informar Engenharia Industrial." };
-    }
-
-    if (!response.ok) {
-      let err;
-      try {
-        err = await response.json();
-      } catch {
-        err = { detail: "Erro ao buscar o arquivo." };
+    .then(async response => {
+      if (response.status === 404) {
+        throw { detail: "Folha de processo não encontrado! Favor, informar Engenharia Industrial." };
       }
-      throw err;
-    }
 
-    return response.blob();
-  })
-  .then(blob => {
-    const pdfUrl = URL.createObjectURL(blob);
-    window.open(pdfUrl, "_blank");
+      if (!response.ok) {
+        let err;
+        try {
+          err = await response.json();
+        } catch {
+          err = { detail: "Erro ao buscar o arquivo." };
+        }
+        throw err;
+      }
 
-    showMessage("Folha de processo encontrada!", "green");
+      // Se chegou aqui, o backend respondeu um PDF válido.
+      // Agora abrimos diretamente o endpoint em uma nova aba.
+      window.open(`/buscar/${serial}`, "_blank");
 
-  })
-  .catch(err => {
-    showMessage(err.detail || "Erro ao buscar o arquivo.", "red");
-  })
-  .finally(() => {
-    document.getElementById("serial").value = "";
-    document.getElementById("serial").focus();
-  });
+      showMessage("Folha de processo encontrada!", "green");
+    })
+    .catch(err => {
+      showMessage(err.detail || "Erro ao buscar o arquivo.", "red");
+    })
+    .finally(() => {
+      document.getElementById("serial").value = "";
+      document.getElementById("serial").focus();
+    });
 
 }
 
