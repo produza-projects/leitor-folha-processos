@@ -1,19 +1,16 @@
 from backend.db.connection import get_connection
-from dotenv import load_dotenv
-import os
+from psycopg2.extras import RealDictCursor
 
-load_dotenv()
-
-DB_NAME = os.getenv("DB_NAME")
-DB_TABELA_FOLHAS = os.getenv("DB_TABELA_FOLHAS")
 
 def buscar(of):
-    query = f"""
-        SELECT caminho
-        FROM {DB_NAME}.{DB_TABELA_FOLHAS}
-        WHERE of = %s
+    query = """
+        SELECT c.id as id_caminhno, c.cod_produto, o.ordem_fabricacao, c.caminho
+        FROM caminhos c
+        LEFT JOIN ordens_fabricacao o
+        ON o.caminho_id = c.id
+        WHERE o.ordem_fabricacao = %s
     """
     with get_connection() as conn:
-        with conn.cursor() as cursor:
-            cursor.execute(query, of)
+        with conn.cursor(cursor_factory=RealDictCursor) as cursor:
+            cursor.execute(query, (of,))
             return cursor.fetchone()

@@ -51,7 +51,7 @@ O **Leitor de Folha de Processos** facilita o acesso rápido a documentos de pro
 - **Bootstrap 5.3.3**
 
 ### Banco de dados
-- MariaDB
+- PostgreSQL
 
 ### Outras Dependências
 - Bibliotecas Python (conforme `requirements.txt`)
@@ -91,12 +91,11 @@ pip install -r requirements.txt
 
 Crie um arquivo `.env` na raiz do projeto com as credenciais do banco de dados:
 ```env
-DB_HOST=seu_host_mariadb
-DB_USER=seu_usuario
-DB_PASSWORD=sua_senha
-DB_NAME=nome_do_banco
-DB_PORT=3306
-DB_TABELA_FOLHAS=nome_da_tabela
+POSTGRES_HOST=seu_host_postgres
+POSTGRES_PORT=5432
+POSTGRES_DATABASE=nome_do_banco
+POSTGRES_USERNAME=seu_usuario
+POSTGRES_PASSWORD=sua_senha
 ```
 
 > **Nota**: Solicite as credenciais ao administrador do sistema.
@@ -128,10 +127,10 @@ uvicorn backend.main:app --reload
 
 **Fluxo de requisição**:
 ```
-┌─────────┐      ┌─────────┐      ┌─────────┐      ┌──────────┐
-│Frontend │─────>│ FastAPI │─────>│ MariaDB │      │Arquivo   │
-│(HTML/JS)│      │(Backend)│      │         │      │PDF (rede)│
-└─────────┘      └─────────┘      └─────────┘      └──────────┘
+┌─────────┐      ┌─────────┐      ┌──────────┐     ┌──────────┐
+│Frontend │─────>│ FastAPI │─────>│PostgreSQL│     │Arquivo   │
+│(HTML/JS)│      │(Backend)│      │          │     │PDF (rede)│
+└─────────┘      └─────────┘      └──────────┘     └──────────┘
      ▲                │                 │                 │
      │                └─────────────────┴─────────────────┘
      │                          (Backend busca PDF)
@@ -140,20 +139,23 @@ uvicorn backend.main:app --reload
 ```
 
 1. Usuário insere OF
-2. Backend consulta caminho do PDF no MariaDB
+2. Backend consulta caminho do PDF no PostgreSQL
 3. Backend localiza e lê o arquivo PDF na rede
 4. PDF é servido para visualização no navegador
 
 ### Banco de Dados
 
-**Tabela de Processos**:
+**Tabelas de Processos**:
 
-| Campo     | Tipo    | Descrição                    |
-|-----------|---------|------------------------------|
-| `of`      | INT     | Ordem de Fabricação (chave)  |
-| `caminho` | VARCHAR | Caminho do PDF na rede       |
+| Tabela                | Campo                | Descrição                   |
+|-----------------------|----------------------|-----------------------------|
+| `caminhos`            | `id`                 | Identificador do caminho    |
+| `caminhos`            | `cod_produto`        | Código do produto           |
+| `caminhos`            | `caminho`            | Caminho do PDF na rede      |
+| `ordens_fabricacao`   | `ordem_fabricacao`   | Ordem de fabricação         |
+| `ordens_fabricacao`   | `caminho_id`         | Referência para `caminhos`  |
 
-**Conexão**: PyMySQL + MariaDB (configurado via `.env`)
+**Conexão**: psycopg2 + PostgreSQL (configurado via `.env`)
 
 ## Licença
 

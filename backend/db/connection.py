@@ -1,18 +1,24 @@
-from dotenv import load_dotenv
-import pymysql
 import os
-from pymysql.cursors import DictCursor
+import psycopg2
 
-# carrega variáveis do .env
+from dotenv import load_dotenv
+
 load_dotenv()
 
+
 def get_connection():
-    return pymysql.connect(
-        host=os.getenv("DB_HOST"),
-        user=os.getenv("DB_USER"),
-        password=os.getenv("DB_PASSWORD", ""),
-        database=os.getenv("DB_NAME"),
-        port=int(os.getenv("DB_PORT", 3306)),
-        cursorclass=DictCursor,
-        connect_timeout=5,
+    server_host = os.getenv('POSTGRES_HOST')
+    port = os.getenv('POSTGRES_PORT')
+    database = os.getenv('POSTGRES_DATABASE')
+    user = os.getenv('POSTGRES_USERNAME')
+    password = os.getenv('POSTGRES_PASSWORD')
+
+    conn = psycopg2.connect(
+        host=server_host,
+        port=port,
+        database=database,
+        user=user,
+        password=password
     )
+
+    return conn
