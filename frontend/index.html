@@ -10,7 +10,7 @@
 
   <style>
     body {
-      font-family: "Times New Roman", sans-serif;
+      font-family: "Georgia", "Monaco", sans-serif;
       background: var(--bs-secondary-bg);
       min-height: 100vh;
       margin: 0;
@@ -39,6 +39,15 @@
       display: flex;
       justify-content: center;
       align-items: center;
+      background: linear-gradient(135deg,  #F08522 0%, #00578D 100%);
+      padding: 40px 0;
+    }
+
+    .logo {
+      display: block;
+      margin: 0 auto 18px;
+      max-width: 220px;
+      height: auto;
     }
 
     .container {
@@ -99,7 +108,8 @@
 
   <div class="content">
     <div class="container">
-      <h1>Consultar Folha de Processo</h1>
+    <img src="images/Logo_P_Produza.svg" alt="Produza" class="logo">
+    <h1>Consultar Folha</h1>
 
       <input type="text" id="serial" class="form-control mt-2" placeholder="Digite a OF" autofocus>
 
@@ -115,7 +125,7 @@
     Developed by <a href="https://github.com/pettersonprosa" target="_blank">Petterson</a>
   </footer>
   
-  <div class="version">v2.1.0</div>
+  <div class="version">v2.1.1</div>
 
   <script src="script.js"></script>  
 
