@@ -1,0 +1,39 @@
+services:
+  leitor-folha-processos-dev:
+    container_name: leitor-folha-processos-dev
+    build:
+      context: .
+      dockerfile: Dockerfile
+
+    env_file:
+      - .env
+
+    ports:
+      - "8082:8000"
+
+    image: leitor-folha-processos-dev
+
+    restart: unless-stopped
+
+    volumes:
+      # Compartilhamento CIFS montado no host
+      # Somente leitura para maior segurança
+      - /mnt/boro_documentacao_geral:/mnt/boro_documentacao_geral:ro
+      - /opt/docker/prod/nginx/conf.d:/etc/nginx/conf.d:ro
+      - /opt/docker/prod/nginx/certs:/etc/nginx/certs:ro
+
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:8000/healthz || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+
+    networks:
+      - proxy
+
+networks:
+  proxy:
+    external: true
+  postgres_dev:
+    external: true
