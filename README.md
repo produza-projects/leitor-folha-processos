@@ -107,6 +107,24 @@ uvicorn backend.main:app --reload
 
 > Por padrão, a aplicação será iniciada em http://127.0.0.1:8000. Para personalizar host e porta, use: uvicorn backend.main:app --host 0.0.0.0 --port 8080
 
+
+## Publicação com HTTPS via nginx
+
+A aplicação pode continuar escutando HTTP internamente na rede Docker, em `leitor-folha-processos:8000`. O HTTPS deve ser terminado no container nginx que está na mesma rede externa `proxy`.
+
+Exemplo de vhost nginx: [`nginx/leitor-folha-processos.https.conf.example`](nginx/leitor-folha-processos.https.conf.example).
+
+Checklist de implantação:
+
+1. Garanta que o container nginx também esteja conectado à rede Docker externa `proxy`.
+2. Configure o vhost com `server_name fp.abc.local`.
+3. Instale no nginx um certificado válido para `fp.abc.local`.
+4. Exponha/publice as portas `80` e `443` no container nginx.
+5. Peça para a TI apontar o DNS `fp.abc.local` para o IP do servidor onde o nginx atende.
+6. Recarregue o nginx após instalar o arquivo de configuração e os certificados.
+
+Para ambiente interno, o certificado normalmente deve ser emitido pela CA interna da empresa. Um certificado self-signed também funciona tecnicamente, mas cada estação cliente precisará confiar na CA/certificado para o navegador não exibir alerta de segurança.
+
 ## Como Usar
 
 ### Digitação Manual
