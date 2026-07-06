@@ -1,0 +1,11 @@
+services:
+  leitor-folha-processos:
+    container_name: leitor-folha-processos
+    image: leitor-folha-processos
+    networks:
+      - proxy
+      - postgres
+
+networks:
+  postgres:
+    external: true

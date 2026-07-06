@@ -1,17 +1,14 @@
 services:
-  leitor-folha-processos-dev:
-    container_name: leitor-folha-processos-dev
+  leitor-folha-processos:
     build:
-      context: .
-      dockerfile: Dockerfile
+      context: ..
+      dockerfile: docker/Dockerfile
 
     env_file:
-      - .env
+      - ../.env
 
     ports:
       - "18082:8000"
-
-    image: leitor-folha-processos-dev
 
     restart: unless-stopped
 
@@ -29,12 +26,6 @@ services:
       retries: 3
       start_period: 20s
 
-    networks:
-      - proxy
-      - postgres_dev
-
 networks:
   proxy:
-    external: true
-  postgres_dev:
     external: true

@@ -21,8 +21,6 @@ RUN pip install --no-cache-dir --upgrade pip && \
 # Copia código da aplicação
 COPY backend ./backend
 COPY frontend ./frontend
-COPY alembic.ini .
-COPY alembic ./alembic
 
 # Uvicorn escutando em todas as interfaces
 CMD ["uvicorn", "backend.main:app", "--host", "0.0.0.0", "--port", "8000"]
