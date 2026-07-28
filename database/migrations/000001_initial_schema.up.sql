@@ -45,3 +45,30 @@ CREATE TABLE ordens_fabricacao (
 -- ============================================================
 CREATE INDEX idx_ordens_fabricacao_caminho_id
     ON ordens_fabricacao(caminho_id);
+
+-- Os usuários são provisionados pelo server-infra. Os testes locais continuam
+-- funcionando sem eles, enquanto o servidor recebe apenas os grants do
+-- contrato desta migration. A tabela interna schema_migrations não é exposta.
+DO $$
+BEGIN
+    IF EXISTS (
+        SELECT 1 FROM pg_roles WHERE rolname = 'leitor_folha_processos'
+    ) THEN
+        EXECUTE 'GRANT SELECT ON TABLE caminhos, ordens_fabricacao '
+            'TO leitor_folha_processos';
+    END IF;
+
+    IF EXISTS (
+        SELECT 1
+        FROM pg_roles
+        WHERE rolname = 'leitor_folha_processos_data_sync'
+    ) THEN
+        EXECUTE 'GRANT SELECT, INSERT, UPDATE ON TABLE caminhos '
+            'TO leitor_folha_processos_data_sync';
+        EXECUTE 'GRANT SELECT, INSERT ON TABLE ordens_fabricacao '
+            'TO leitor_folha_processos_data_sync';
+        EXECUTE 'GRANT USAGE, SELECT ON SEQUENCE caminhos_id_seq '
+            'TO leitor_folha_processos_data_sync';
+    END IF;
+END
+$$;
