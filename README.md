@@ -17,6 +17,7 @@ Aplicação web interna para consulta e visualização de folhas de processos em
 - [Funcionalidades](#funcionalidades)
 - [Tecnologias Utilizadas](#tecnologias-utilizadas)
 - [Instalação](#instalação)
+- [Migrations do Banco](#migrations-do-banco)
 - [Como Usar](#como-usar)
 - [Estrutura Técnica](#estrutura-técnica)
 - [Licença](#licença)
@@ -106,6 +107,47 @@ uvicorn backend.main:app --reload
 ```
 
 > Por padrão, a aplicação será iniciada em http://127.0.0.1:8000. Para personalizar host e porta, use: uvicorn backend.main:app --host 0.0.0.0 --port 8080
+
+## Migrations do Banco
+
+Este repositório é a fonte oficial do schema compartilhado do banco
+`gerenciador_fp`. Tabelas, índices, constraints e futuras alterações ficam em
+`database/migrations/` e não devem ser duplicados em scripts de infraestrutura
+ou no repositório de sincronização.
+
+O repositório `server-infra` cria o database PostgreSQL, provisiona as
+credenciais e orquestra `migrate up` antes de iniciar as aplicações. A imagem
+Docker deste projeto inclui o CLI `migrate` e copia as migrations para:
+
+```text
+/app/database/migrations
+```
+
+Para aplicar localmente, instale o CLI
+[`golang-migrate`](https://github.com/golang-migrate/migrate) e execute:
+
+```bash
+export DATABASE_URL='postgres://usuario:senha@localhost:5432/gerenciador_fp?sslmode=disable'
+make migrate-up
+make migrate-version
+```
+
+Uma migration já aplicada é imutável. Mudanças futuras devem ser adicionadas em
+novos pares `.up.sql` e `.down.sql`; não edite `000001_initial_schema` depois de
+ela ter sido usada em qualquer ambiente compartilhado.
+
+Ao criar tabelas ou sequences, a mesma migration deve incluir os grants mínimos
+para os usuários consumidores, condicionados à existência das roles. Não use
+`ALTER DEFAULT PRIVILEGES`, pois ele também poderia expor a tabela interna
+`schema_migrations`.
+
+O arquivo de criação do database não pertence a este repositório. Em ambientes
+gerenciados, essa responsabilidade é do `server-infra`.
+
+Nos Composes locais, a aplicação usa as redes externas lógicas `proxy` e
+`database`, com nomes `server-infra-<ambiente>_proxy` e
+`server-infra-<ambiente>_database`. O hostname PostgreSQL dentro da rede é
+`postgres`; não use IP de container nem publique a porta do banco.
 
 
 ## Publicação com HTTPS via nginx
