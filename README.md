@@ -57,6 +57,21 @@ O **Leitor de Folha de Processos** facilita o acesso rápido a documentos de pro
 ### Outras Dependências
 - Bibliotecas Python (conforme `requirements.txt`)
 
+### Compartilhamento de PDFs
+
+Em ambientes gerenciados, o servidor deve montar o compartilhamento SMB/CIFS em
+`/mnt/boro_documentacao_geral` antes de iniciar a aplicação. O Compose fornece
+esse diretório ao container como bind mount somente leitura e não cria a origem
+automaticamente quando ela estiver ausente.
+
+Usuário e senha do compartilhamento pertencem à infraestrutura do servidor;
+eles não devem ser adicionados ao `.env`, ao banco de dados ou à imagem.
+
+Os arquivos em `docker/` também servem ao uso local e não implementam a
+dependência de boot do servidor. No host gerenciado, inicie a aplicação somente
+pela unit systemd gerada pelo `server-infra`; ela valida o CIFS antes de permitir
+que o container suba.
+
 ## Instalação
 
 Siga os passos abaixo para configurar o projeto localmente:

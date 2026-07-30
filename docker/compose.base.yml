@@ -15,7 +15,12 @@ services:
     volumes:
       # Compartilhamento CIFS montado no host
       # Somente leitura para maior segurança
-      - /mnt/boro_documentacao_geral:/mnt/boro_documentacao_geral:ro
+      - type: bind
+        source: /mnt/boro_documentacao_geral
+        target: /mnt/boro_documentacao_geral
+        read_only: true
+        bind:
+          create_host_path: false
       - /opt/docker/prod/nginx/conf.d:/etc/nginx/conf.d:ro
       - /opt/docker/prod/nginx/certs:/etc/nginx/certs:ro
 
