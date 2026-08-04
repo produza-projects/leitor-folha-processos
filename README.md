@@ -18,6 +18,7 @@ Aplicação web interna para consulta e visualização de folhas de processos em
 - [Tecnologias Utilizadas](#tecnologias-utilizadas)
 - [Instalação](#instalação)
 - [Migrations do Banco](#migrations-do-banco)
+- [Publicação da Imagem de Desenvolvimento](#publicação-da-imagem-de-desenvolvimento)
 - [Como Usar](#como-usar)
 - [Estrutura Técnica](#estrutura-técnica)
 - [Licença](#licença)
@@ -163,6 +164,28 @@ Nos Composes locais, a aplicação usa as redes externas lógicas `proxy` e
 `database`, com nomes `server-infra-<ambiente>_proxy` e
 `server-infra-<ambiente>_database`. O hostname PostgreSQL dentro da rede é
 `postgres`; não use IP de container nem publique a porta do banco.
+
+## Publicação da Imagem de Desenvolvimento
+
+O workflow `.github/workflows/publish-dev-image.yml` é executado em todo push
+para a branch `dev`. Ele constrói a imagem, inicia um container temporário,
+valida o endpoint `/healthz` e somente então publica a imagem no GHCR com uma
+tag imutável no formato:
+
+```text
+ghcr.io/produza-projects/leitor-folha-processos:dev-<commit-curto>
+```
+
+A autenticação usa o `GITHUB_TOKEN` fornecido pelo próprio GitHub Actions, com
+acesso somente de leitura ao conteúdo do repositório e escrita em packages.
+Nenhum token adicional deve ser criado ou salvo como secret do projeto.
+
+O resumo da execução registra a tag e o digest da imagem publicada. Use o
+digest informado ao executar o playbook de deploy do `server-infra`.
+
+Depois da primeira publicação, altere manualmente a visibilidade do package no
+GHCR para público. O servidor de desenvolvimento poderá então baixar a imagem
+sem armazenar uma credencial de registry.
 
 
 ## Publicação com HTTPS via Traefik
