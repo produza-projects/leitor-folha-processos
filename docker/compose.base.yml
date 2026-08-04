@@ -7,8 +7,8 @@ services:
     env_file:
       - ../.env
 
-    ports:
-      - "18082:8000"
+    expose:
+      - "8000"
 
     restart: unless-stopped
 
@@ -21,9 +21,6 @@ services:
         read_only: true
         bind:
           create_host_path: false
-      - /opt/docker/prod/nginx/conf.d:/etc/nginx/conf.d:ro
-      - /opt/docker/prod/nginx/certs:/etc/nginx/certs:ro
-
     healthcheck:
       test: ["CMD-SHELL", "curl -fsS http://localhost:8000/healthz || exit 1"]
       interval: 30s

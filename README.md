@@ -165,22 +165,45 @@ Nos Composes locais, a aplicação usa as redes externas lógicas `proxy` e
 `postgres`; não use IP de container nem publique a porta do banco.
 
 
-## Publicação com HTTPS via nginx
+## Publicação com HTTPS via Traefik
 
-A aplicação pode continuar escutando HTTP internamente na rede Docker, em `leitor-folha-processos:8000`. O HTTPS deve ser terminado no container nginx que está na mesma rede externa `proxy`.
+A aplicação escuta HTTP somente dentro da rede Docker, em
+`leitor-folha-processos:8000`. Traefik é o único serviço que publica portas no
+host, termina o TLS e encaminha as requisições pela rede externa `proxy`.
 
-Exemplo de vhost nginx: [`nginx/leitor-folha-processos.https.conf.example`](nginx/leitor-folha-processos.https.conf.example).
+O deploy oficial, incluindo hostname, labels, certificado e ciclo de vida do
+Traefik, pertence ao repositório `server-infra`. Em desenvolvimento, o hostname
+temporário é `fp.dev.test` e a rede é `server-infra-dev_proxy`.
 
-Checklist de implantação:
+Enquanto o DNS corporativo não estiver disponível, adicione na estação de teste:
 
-1. Garanta que o container nginx também esteja conectado à rede Docker externa `proxy`.
-2. Configure o vhost com `server_name fp.abc.local`.
-3. Instale no nginx um certificado válido para `fp.abc.local`.
-4. Exponha/publice as portas `80` e `443` no container nginx.
-5. Peça para a TI apontar o DNS `fp.abc.local` para o IP do servidor onde o nginx atende.
-6. Recarregue o nginx após instalar o arquivo de configuração e os certificados.
+```text
+172.16.8.246 fp.dev.test
+```
 
-Para ambiente interno, o certificado normalmente deve ser emitido pela CA interna da empresa. Um certificado self-signed também funciona tecnicamente, mas cada estação cliente precisará confiar na CA/certificado para o navegador não exibir alerta de segurança.
+Também é possível testar sem alterar o arquivo `hosts`:
+
+```bash
+curl --resolve fp.dev.test:443:172.16.8.246 \
+  --cacert /caminho/para/ca.crt \
+  https://fp.dev.test/healthz
+```
+
+O certificado de desenvolvimento deve conter `fp.dev.test` no SAN. A CA local
+precisa ser confiada apenas nas estações de teste; sua chave privada não deve ser
+copiada para o servidor. No DNS definitivo, altere hostname e certificado pelo
+inventário do `server-infra`, sem publicar a porta `8000`.
+
+Para diagnóstico local excepcional, publique apenas em loopback usando o
+override dedicado:
+
+```bash
+docker compose \
+  -f docker/compose.base.yml \
+  -f docker/compose.dev.yml \
+  -f docker/compose.diagnostics.yml \
+  up
+```
 
 ## Como Usar
 
