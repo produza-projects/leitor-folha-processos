@@ -1,0 +1,4 @@
+services:
+  leitor-folha-processos:
+    ports:
+      - "127.0.0.1:18082:8000"

@@ -19,6 +19,11 @@ app.add_middleware(
 )
 
 
+@app.get("/healthz", include_in_schema=False)
+def healthz():
+    return {"status": "ok"}
+
+
 def _iter_pdf_file(path: str, chunk_size: int = 1024 * 1024):
     with open(path, "rb") as file:
         while True:

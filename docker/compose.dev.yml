@@ -1,9 +1,21 @@
+name: leitor-folha-processos-dev
+
 services:
   leitor-folha-processos:
     image: leitor-folha-processos-dev
     networks:
       - proxy
       - database
+    labels:
+      - traefik.enable=true
+      - traefik.environment=dev
+      - traefik.docker.network=server-infra-dev_proxy
+      - traefik.http.routers.leitor-folha-processos.rule=Host(`fp.dev.test`)
+      - traefik.http.routers.leitor-folha-processos.entrypoints=websecure
+      - traefik.http.routers.leitor-folha-processos.tls=true
+      - traefik.http.routers.leitor-folha-processos.service=leitor-folha-processos
+      - traefik.http.routers.leitor-folha-processos.middlewares=security-headers@file
+      - traefik.http.services.leitor-folha-processos.loadbalancer.server.port=8000
 
 networks:
   proxy:
