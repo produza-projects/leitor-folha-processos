@@ -1,9 +1,16 @@
+name: leitor-folha-processos-prod
+
 services:
   leitor-folha-processos:
     image: leitor-folha-processos
     networks:
       - proxy
       - database
+    labels:
+      # Produção permanece deliberadamente fora do Traefik até a definição do
+      # hostname, DNS e certificado definitivos no server-infra.
+      - traefik.enable=false
+      - traefik.environment=prod
 
 networks:
   proxy:
