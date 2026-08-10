@@ -108,7 +108,11 @@
 
   <div class="content">
     <div class="container">
-    <img src="images/Logo_P_Produza.svg" alt="Produza" class="logo">
+    <div class="d-flex justify-content-end align-items-center gap-2 mb-2">
+      <span id="currentUser" class="small text-body-secondary"></span>
+      <a href="/logout" class="btn btn-sm btn-outline-secondary">Sair</a>
+    </div>
+    <img src="/static/images/Logo_P_Produza.svg" alt="Produza" class="logo">
     <h1>Consultar Folha</h1>
 
       <input type="text" id="serial" class="form-control mt-2" placeholder="Digite a OF" autofocus>
@@ -127,7 +131,7 @@
   
   <div class="version">v2.1.1</div>
 
-  <script src="script.js"></script>  
+  <script src="/static/script.js"></script>
 
 </body>
 </html>

@@ -5,6 +5,7 @@ services:
     image: leitor-folha-processos
     networks:
       - proxy
+      - auth
       - database
     labels:
       # Produção permanece deliberadamente fora do Traefik até a definição do
@@ -19,3 +20,6 @@ networks:
   database:
     external: true
     name: server-infra-prod_database
+  auth:
+    external: true
+    name: server-infra-prod_auth

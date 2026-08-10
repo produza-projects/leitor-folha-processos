@@ -39,6 +39,8 @@ O **Leitor de Folha de Processos** facilita o acesso rápido a documentos de pro
 - Leitura de QR Code para acesso instantâneo
 - Visualização de PDF diretamente no navegador
 - Interface responsiva
+- Login centralizado pelo Keycloak em ambientes gerenciados
+- Autorização pela role de client `viewer`
 
 ## Tecnologias Utilizadas
 
@@ -161,9 +163,41 @@ O arquivo de criação do database não pertence a este repositório. Em ambient
 gerenciados, essa responsabilidade é do `server-infra`.
 
 Nos Composes locais, a aplicação usa as redes externas lógicas `proxy` e
-`database`, com nomes `server-infra-<ambiente>_proxy` e
+`auth` e `database`, com nomes `server-infra-<ambiente>_proxy`,
+`server-infra-<ambiente>_auth` e
 `server-infra-<ambiente>_database`. O hostname PostgreSQL dentro da rede é
 `postgres`; não use IP de container nem publique a porta do banco.
+
+## Autenticação com Keycloak
+
+Em `dev`, a aplicação é um client confidencial OIDC chamado
+`leitor-folha-processos` no realm `produza-dev`. O fluxo usado é Authorization
+Code com PKCE S256. O backend troca e valida os tokens; o navegador recebe
+somente o cookie de sessão assinado `fp_session`, com `HttpOnly`, `Secure` e
+`SameSite=Lax`. Tokens e client secret não são gravados no JavaScript nem no
+`localStorage`.
+
+As rotas `/`, `/api/me` e `/buscar/{serial}` exigem login, e a consulta de PDF
+exige a client role `viewer`. `/healthz` permanece público para healthchecks. A
+sessão local dura uma hora e um novo login é solicitado ao expirar.
+
+O backend usa duas URLs para o mesmo realm:
+
+- `OIDC_PUBLIC_ISSUER`: URL HTTPS vista pelo navegador e declarada no token;
+- `OIDC_INTERNAL_ISSUER`: URL HTTP privada `http://keycloak:8080` usada somente
+  entre containers na rede `auth` para token e chaves públicas.
+
+Em ambiente gerenciado, os valores ficam em
+`/opt/<ambiente>/secrets/leitor-folha-processos.env`. O
+`OIDC_CLIENT_SECRET` deve ser exatamente o secret da aba Credentials do client
+no Keycloak. `OIDC_SESSION_SECRET` é independente e pode ser gerado com:
+
+```bash
+openssl rand -hex 32
+```
+
+Não envie nenhum dos dois ao Git nem os reutilize em outro ambiente. Para
+execução local sem Keycloak, use `OIDC_ENABLED=false`, conforme `.env.example`.
 
 ## Publicação da Imagem de Desenvolvimento
 
