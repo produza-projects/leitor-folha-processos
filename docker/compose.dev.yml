@@ -5,6 +5,7 @@ services:
     image: leitor-folha-processos-dev
     networks:
       - proxy
+      - auth
       - database
     labels:
       - traefik.enable=true
@@ -24,3 +25,6 @@ networks:
   database:
     external: true
     name: server-infra-dev_database
+  auth:
+    external: true
+    name: server-infra-dev_auth

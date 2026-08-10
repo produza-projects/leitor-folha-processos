@@ -6,6 +6,24 @@ document.getElementById("serial").addEventListener("keydown", function (event) {
   }
 });
 
+fetch("/api/me")
+  .then(response => {
+    if (response.status === 401) {
+      window.location.assign("/login");
+      return null;
+    }
+    if (!response.ok) {
+      throw new Error("Não foi possível identificar o usuário.");
+    }
+    return response.json();
+  })
+  .then(user => {
+    if (!user) return;
+    document.getElementById("currentUser").textContent =
+      user.name || user.preferred_username || "Usuário autenticado";
+  })
+  .catch(() => showMessage("Não foi possível identificar o usuário.", "red"));
+
 function buscar() {
   const serial = document.getElementById("serial").value.trim().slice(0, 7);
   const message = document.getElementById("message");
@@ -13,14 +31,21 @@ function buscar() {
   message.textContent = "";
 
   if (!serial) {
-    messageText = "Informe o código serial.";
-    messageColor = "orange";
-    showMessage(messageText, messageColor)
+    showMessage("Informe o código serial.", "orange");
     return;
   }
 
   fetch(`/buscar/${serial}`)
     .then(async response => {
+      if (response.status === 401) {
+        window.location.assign(`/login?return_to=${encodeURIComponent(window.location.pathname)}`);
+        return null;
+      }
+
+      if (response.status === 403) {
+        throw { detail: "Seu usuário não possui a permissão viewer." };
+      }
+
       if (response.status === 404) {
         throw { detail: "Folha de processo não encontrado! Favor, informar Engenharia Industrial." };
       }
@@ -37,7 +62,9 @@ function buscar() {
 
       // Se chegou aqui, o backend respondeu um PDF válido.
       // Agora abrimos diretamente o endpoint em uma nova aba.
-      window.open(`/buscar/${serial}`, "_blank");
+      if (response) {
+        window.open(`/buscar/${serial}`, "_blank");
+      }
 
       showMessage("Folha de processo encontrada!", "green");
     })
