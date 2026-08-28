@@ -199,6 +199,19 @@ openssl rand -hex 32
 Não envie nenhum dos dois ao Git nem os reutilize em outro ambiente. Para
 execução local sem Keycloak, use `OIDC_ENABLED=false`, conforme `.env.example`.
 
+O login corporativo é federado pelo Keycloak ao Google por OIDC. A aplicação
+não recebe o Client ID, o Client Secret nem tokens do Google e não valida
+domínios diretamente. O Keycloak aceita o claim corporativo `hd` somente para
+`produza.ind.br` e `certi.org.br` e adiciona esses usuários ao grupo que concede
+a client role `viewer`.
+
+O OIDC básico do Google não sincroniza grupos do Workspace. A política atual é
+permitir todos os usuários dos dois domínios. Uma conta local do Keycloak,
+inclusive com e-mail `@gmail.com`, continua podendo autenticar por senha, mas só
+acessa esta aplicação quando um administrador lhe atribui explicitamente a
+client role `viewer` ou o grupo correspondente. O domínio do e-mail de uma conta
+local não concede permissão.
+
 ## Publicação da Imagem de Desenvolvimento
 
 O workflow `.github/workflows/publish-dev-image.yml` é executado em todo push
@@ -230,26 +243,20 @@ host, termina o TLS e encaminha as requisições pela rede externa `proxy`.
 
 O deploy oficial, incluindo hostname, labels, certificado e ciclo de vida do
 Traefik, pertence ao repositório `server-infra`. Em desenvolvimento, o hostname
-temporário é `fp.dev.test` e a rede é `server-infra-dev_proxy`.
+é `fp-dev.produza.ind.br` e a rede é `server-infra-dev_proxy`.
 
-Enquanto o DNS corporativo não estiver disponível, adicione na estação de teste:
-
-```text
-172.16.8.246 fp.dev.test
-```
-
-Também é possível testar sem alterar o arquivo `hosts`:
+Para um diagnóstico que não dependa do DNS, use:
 
 ```bash
-curl --resolve fp.dev.test:443:172.16.8.246 \
-  --cacert /caminho/para/ca.crt \
-  https://fp.dev.test/healthz
+curl --resolve fp-dev.produza.ind.br:443:172.16.8.246 \
+  --cacert /caminho/para/cadeia-ca.pem \
+  https://fp-dev.produza.ind.br/healthz
 ```
 
-O certificado de desenvolvimento deve conter `fp.dev.test` no SAN. A CA local
-precisa ser confiada apenas nas estações de teste; sua chave privada não deve ser
-copiada para o servidor. No DNS definitivo, altere hostname e certificado pelo
-inventário do `server-infra`, sem publicar a porta `8000`.
+O certificado deve conter `fp-dev.produza.ind.br` no SAN e sua cadeia precisa
+ser confiável nas estações usuárias. A chave privada é instalada somente pelo
+procedimento seguro do `server-infra`; nunca deve ser versionada. A porta `8000`
+permanece sem publicação no host.
 
 Para diagnóstico local excepcional, publique apenas em loopback usando o
 override dedicado:

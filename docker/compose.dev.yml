@@ -11,7 +11,7 @@ services:
       - traefik.enable=true
       - traefik.environment=dev
       - traefik.docker.network=server-infra-dev_proxy
-      - traefik.http.routers.leitor-folha-processos.rule=Host(`fp.dev.test`)
+      - traefik.http.routers.leitor-folha-processos.rule=Host(`fp-dev.produza.ind.br`)
       - traefik.http.routers.leitor-folha-processos.entrypoints=websecure
       - traefik.http.routers.leitor-folha-processos.tls=true
       - traefik.http.routers.leitor-folha-processos.service=leitor-folha-processos
