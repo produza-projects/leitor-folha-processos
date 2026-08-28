@@ -17,13 +17,13 @@ from backend.main import create_app
 def oidc_settings(**overrides) -> OIDCSettings:
     values = {
         "enabled": True,
-        "public_issuer": "https://auth.dev.test/realms/produza-dev",
+        "public_issuer": "https://auth-dev.produza.ind.br/realms/produza-dev",
         "internal_issuer": "http://keycloak:8080/realms/produza-dev",
         "client_id": "leitor-folha-processos",
         "client_secret": "client-secret",
         "session_secret": "a" * 64,
-        "redirect_uri": "https://fp.dev.test/auth/callback",
-        "post_logout_redirect_uri": "https://fp.dev.test/",
+        "redirect_uri": "https://fp-dev.produza.ind.br/auth/callback",
+        "post_logout_redirect_uri": "https://fp-dev.produza.ind.br/",
         "required_role": "viewer",
         "session_max_age": 3600,
         "cookie_secure": True,
@@ -94,7 +94,7 @@ def anyio_backend():
 def application_client(application):
     return httpx.AsyncClient(
         transport=httpx.ASGITransport(app=application),
-        base_url="https://fp.dev.test",
+        base_url="https://fp-dev.produza.ind.br",
     )
 
 
@@ -120,11 +120,11 @@ async def test_login_uses_authorization_code_pkce_and_sanitizes_return_path():
     location = urlparse(response.headers["location"])
     query = parse_qs(location.query)
     assert f"{location.scheme}://{location.netloc}{location.path}" == (
-        "https://auth.dev.test/realms/produza-dev/protocol/openid-connect/auth"
+        "https://auth-dev.produza.ind.br/realms/produza-dev/protocol/openid-connect/auth"
     )
     assert query["response_type"] == ["code"]
     assert query["code_challenge_method"] == ["S256"]
-    assert query["redirect_uri"] == ["https://fp.dev.test/auth/callback"]
+    assert query["redirect_uri"] == ["https://fp-dev.produza.ind.br/auth/callback"]
     assert query["state"][0]
     assert query["nonce"][0]
     assert query["code_challenge"][0]
