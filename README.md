@@ -18,7 +18,7 @@ Aplicação web interna para consulta e visualização de folhas de processos em
 - [Tecnologias Utilizadas](#tecnologias-utilizadas)
 - [Instalação](#instalação)
 - [Migrations do Banco](#migrations-do-banco)
-- [Publicação da Imagem de Desenvolvimento](#publicação-da-imagem-de-desenvolvimento)
+- [Publicação das Imagens](#publicação-das-imagens)
 - [Como Usar](#como-usar)
 - [Estrutura Técnica](#estrutura-técnica)
 - [Licença](#licença)
@@ -212,7 +212,7 @@ acessa esta aplicação quando um administrador lhe atribui explicitamente a
 client role `viewer` ou o grupo correspondente. O domínio do e-mail de uma conta
 local não concede permissão.
 
-## Publicação da Imagem de Desenvolvimento
+## Publicação das Imagens
 
 O workflow `.github/workflows/publish-dev-image.yml` é executado em todo push
 para a branch `dev`. Ele constrói a imagem, inicia um container temporário,
@@ -223,6 +223,18 @@ tag imutável no formato:
 ghcr.io/produza-projects/leitor-folha-processos:dev-<commit-curto>
 ```
 
+O workflow `.github/workflows/publish-production-image.yml` aplica as mesmas
+validações aos pull requests destinados à `main`. Após o merge, o push na
+`main` publica a imagem de produção no formato:
+
+```text
+ghcr.io/produza-projects/leitor-folha-processos:prod-<commit-curto>
+```
+
+Nenhum dos fluxos publica a tag mutável `latest`. A promoção para produção é
+feita pelo merge controlado de `dev` em `main`; o deploy usa sempre o digest
+SHA-256 gerado pelo workflow da `main`.
+
 A autenticação usa o `GITHUB_TOKEN` fornecido pelo próprio GitHub Actions, com
 acesso somente de leitura ao conteúdo do repositório e escrita em packages.
 Nenhum token adicional deve ser criado ou salvo como secret do projeto.
@@ -230,33 +242,39 @@ Nenhum token adicional deve ser criado ou salvo como secret do projeto.
 O resumo da execução registra a tag e o digest da imagem publicada. Use o
 digest informado ao executar o playbook de deploy do `server-infra`.
 
-Depois da primeira publicação, altere manualmente a visibilidade do package no
-GHCR para público. O servidor de desenvolvimento poderá então baixar a imagem
-sem armazenar uma credencial de registry.
+O package no GHCR deve permanecer acessível ao servidor conforme a política do
+repositório. Quando ele for privado, o servidor precisa usar uma credencial com
+permissão mínima `read:packages`.
 
 
 ## Publicação com HTTPS via Traefik
 
 A aplicação escuta HTTP somente dentro da rede Docker, em
-`leitor-folha-processos:8000`. Traefik é o único serviço que publica portas no
-host, termina o TLS e encaminha as requisições pela rede externa `proxy`.
+`leitor-folha-processos:8000`. O Traefik compartilhado é o único container que
+publica uma porta no host e encaminha as requisições pela rede `proxy` isolada
+de cada ambiente.
 
-O deploy oficial, incluindo hostname, labels, certificado e ciclo de vida do
-Traefik, pertence ao repositório `server-infra`. Em desenvolvimento, o hostname
-é `fp-dev.produza.ind.br` e a rede é `server-infra-dev_proxy`.
+O HTTPS externo é finalizado pela infraestrutura gerenciada pela TI, que
+encaminha HTTP para a porta 80 do Traefik no servidor. O deploy oficial,
+incluindo hostnames, labels e ciclo de vida do proxy, pertence ao repositório
+`server-infra`.
+
+| Ambiente | Hostname | Rede do proxy |
+| --- | --- | --- |
+| Desenvolvimento | `fp-dev.produza.ind.br` | `server-infra-dev_proxy` |
+| Produção | `fp.produza.ind.br` | `server-infra-prod_proxy` |
 
 Para um diagnóstico que não dependa do DNS, use:
 
 ```bash
-curl --resolve fp-dev.produza.ind.br:443:172.16.8.246 \
-  --cacert /caminho/para/cadeia-ca.pem \
-  https://fp-dev.produza.ind.br/healthz
+curl --noproxy '*' \
+  --resolve fp-dev.produza.ind.br:80:172.16.8.246 \
+  http://fp-dev.produza.ind.br/healthz
 ```
 
-O certificado deve conter `fp-dev.produza.ind.br` no SAN e sua cadeia precisa
-ser confiável nas estações usuárias. A chave privada é instalada somente pelo
-procedimento seguro do `server-infra`; nunca deve ser versionada. A porta `8000`
-permanece sem publicação no host.
+Esse comando valida diretamente a origem HTTP e não representa o acesso normal
+dos usuários, que ocorre por HTTPS. A porta `8000` permanece sem publicação no
+host.
 
 Para diagnóstico local excepcional, publique apenas em loopback usando o
 override dedicado:
