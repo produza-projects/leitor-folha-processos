@@ -18,6 +18,7 @@ Aplicação web interna para consulta e visualização de folhas de processos em
 - [Tecnologias Utilizadas](#tecnologias-utilizadas)
 - [Instalação](#instalação)
 - [Migrations do Banco](#migrations-do-banco)
+- [Publicação das Imagens](#publicação-das-imagens)
 - [Como Usar](#como-usar)
 - [Estrutura Técnica](#estrutura-técnica)
 - [Licença](#licença)
@@ -38,6 +39,8 @@ O **Leitor de Folha de Processos** facilita o acesso rápido a documentos de pro
 - Leitura de QR Code para acesso instantâneo
 - Visualização de PDF diretamente no navegador
 - Interface responsiva
+- Login centralizado pelo Keycloak em ambientes gerenciados
+- Autorização pela role de client `viewer`
 
 ## Tecnologias Utilizadas
 
@@ -160,39 +163,118 @@ O arquivo de criação do database não pertence a este repositório. Em ambient
 gerenciados, essa responsabilidade é do `server-infra`.
 
 Nos Composes locais, a aplicação usa as redes externas lógicas `proxy` e
-`database`, com nomes `server-infra-<ambiente>_proxy` e
+`auth` e `database`, com nomes `server-infra-<ambiente>_proxy`,
+`server-infra-<ambiente>_auth` e
 `server-infra-<ambiente>_database`. O hostname PostgreSQL dentro da rede é
 `postgres`; não use IP de container nem publique a porta do banco.
+
+## Autenticação com Keycloak
+
+Em `dev`, a aplicação é um client confidencial OIDC chamado
+`leitor-folha-processos` no realm `produza-dev`. O fluxo usado é Authorization
+Code com PKCE S256. O backend troca e valida os tokens; o navegador recebe
+somente o cookie de sessão assinado `fp_session`, com `HttpOnly`, `Secure` e
+`SameSite=Lax`. Tokens e client secret não são gravados no JavaScript nem no
+`localStorage`.
+
+As rotas `/`, `/api/me` e `/buscar/{serial}` exigem login, e a consulta de PDF
+exige a client role `viewer`. `/healthz` permanece público para healthchecks. A
+sessão local dura uma hora e um novo login é solicitado ao expirar.
+
+O backend usa duas URLs para o mesmo realm:
+
+- `OIDC_PUBLIC_ISSUER`: URL HTTPS vista pelo navegador e declarada no token;
+- `OIDC_INTERNAL_ISSUER`: URL HTTP privada `http://keycloak:8080` usada somente
+  entre containers na rede `auth` para token e chaves públicas.
+
+Em ambiente gerenciado, os valores ficam em
+`/opt/<ambiente>/secrets/leitor-folha-processos.env`. O
+`OIDC_CLIENT_SECRET` deve ser exatamente o secret da aba Credentials do client
+no Keycloak. `OIDC_SESSION_SECRET` é independente e pode ser gerado com:
+
+```bash
+openssl rand -hex 32
+```
+
+Não envie nenhum dos dois ao Git nem os reutilize em outro ambiente. Para
+execução local sem Keycloak, use `OIDC_ENABLED=false`, conforme `.env.example`.
+
+O login corporativo é federado pelo Keycloak ao Google por OIDC. A aplicação
+não recebe o Client ID, o Client Secret nem tokens do Google e não valida
+domínios diretamente. O Keycloak aceita o claim corporativo `hd` somente para
+`produza.ind.br` e `certi.org.br` e adiciona esses usuários ao grupo que concede
+a client role `viewer`.
+
+O OIDC básico do Google não sincroniza grupos do Workspace. A política atual é
+permitir todos os usuários dos dois domínios. Uma conta local do Keycloak,
+inclusive com e-mail `@gmail.com`, continua podendo autenticar por senha, mas só
+acessa esta aplicação quando um administrador lhe atribui explicitamente a
+client role `viewer` ou o grupo correspondente. O domínio do e-mail de uma conta
+local não concede permissão.
+
+## Publicação das Imagens
+
+O workflow `.github/workflows/publish-dev-image.yml` é executado em todo push
+para a branch `dev`. Ele constrói a imagem, inicia um container temporário,
+valida o endpoint `/healthz` e somente então publica a imagem no GHCR com uma
+tag imutável no formato:
+
+```text
+ghcr.io/produza-projects/leitor-folha-processos:dev-<commit-curto>
+```
+
+O workflow `.github/workflows/publish-production-image.yml` aplica as mesmas
+validações aos pull requests destinados à `main`. Após o merge, o push na
+`main` publica a imagem de produção no formato:
+
+```text
+ghcr.io/produza-projects/leitor-folha-processos:prod-<commit-curto>
+```
+
+Nenhum dos fluxos publica a tag mutável `latest`. A promoção para produção é
+feita pelo merge controlado de `dev` em `main`; o deploy usa sempre o digest
+SHA-256 gerado pelo workflow da `main`.
+
+A autenticação usa o `GITHUB_TOKEN` fornecido pelo próprio GitHub Actions, com
+acesso somente de leitura ao conteúdo do repositório e escrita em packages.
+Nenhum token adicional deve ser criado ou salvo como secret do projeto.
+
+O resumo da execução registra a tag e o digest da imagem publicada. Use o
+digest informado ao executar o playbook de deploy do `server-infra`.
+
+O package no GHCR deve permanecer acessível ao servidor conforme a política do
+repositório. Quando ele for privado, o servidor precisa usar uma credencial com
+permissão mínima `read:packages`.
 
 
 ## Publicação com HTTPS via Traefik
 
 A aplicação escuta HTTP somente dentro da rede Docker, em
-`leitor-folha-processos:8000`. Traefik é o único serviço que publica portas no
-host, termina o TLS e encaminha as requisições pela rede externa `proxy`.
+`leitor-folha-processos:8000`. O Traefik compartilhado é o único container que
+publica uma porta no host e encaminha as requisições pela rede `proxy` isolada
+de cada ambiente.
 
-O deploy oficial, incluindo hostname, labels, certificado e ciclo de vida do
-Traefik, pertence ao repositório `server-infra`. Em desenvolvimento, o hostname
-temporário é `fp.dev.test` e a rede é `server-infra-dev_proxy`.
+O HTTPS externo é finalizado pela infraestrutura gerenciada pela TI, que
+encaminha HTTP para a porta 80 do Traefik no servidor. O deploy oficial,
+incluindo hostnames, labels e ciclo de vida do proxy, pertence ao repositório
+`server-infra`.
 
-Enquanto o DNS corporativo não estiver disponível, adicione na estação de teste:
+| Ambiente | Hostname | Rede do proxy |
+| --- | --- | --- |
+| Desenvolvimento | `fp-dev.produza.ind.br` | `server-infra-dev_proxy` |
+| Produção | `fp.produza.ind.br` | `server-infra-prod_proxy` |
 
-```text
-172.16.8.246 fp.dev.test
-```
-
-Também é possível testar sem alterar o arquivo `hosts`:
+Para um diagnóstico que não dependa do DNS, use:
 
 ```bash
-curl --resolve fp.dev.test:443:172.16.8.246 \
-  --cacert /caminho/para/ca.crt \
-  https://fp.dev.test/healthz
+curl --noproxy '*' \
+  --resolve fp-dev.produza.ind.br:80:172.16.8.246 \
+  http://fp-dev.produza.ind.br/healthz
 ```
 
-O certificado de desenvolvimento deve conter `fp.dev.test` no SAN. A CA local
-precisa ser confiada apenas nas estações de teste; sua chave privada não deve ser
-copiada para o servidor. No DNS definitivo, altere hostname e certificado pelo
-inventário do `server-infra`, sem publicar a porta `8000`.
+Esse comando valida diretamente a origem HTTP e não representa o acesso normal
+dos usuários, que ocorre por HTTPS. A porta `8000` permanece sem publicação no
+host.
 
 Para diagnóstico local excepcional, publique apenas em loopback usando o
 override dedicado:
