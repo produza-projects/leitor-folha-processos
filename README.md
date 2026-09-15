@@ -166,6 +166,14 @@ Uma migration já aplicada é imutável. Mudanças futuras devem ser adicionadas
 novos pares `.up.sql` e `.down.sql`; não edite `000001_initial_schema` depois de
 ela ter sido usada em qualquer ambiente compartilhado.
 
+A migration `000002_normalize_product_codes` remove espaços laterais dos códigos
+existentes depois de validar que não há formatos inválidos ou duplicidades
+lógicas. Em seguida, uma constraint garante que `caminhos.cod_produto` permaneça
+exatamente no formato `0000.000000`. Implante primeiro uma versão do
+`leitor-folha-processos-data-sync` que normalize os valores recebidos do
+Protheus; caso contrário, novas sincronizações serão corretamente rejeitadas
+pela constraint.
+
 Ao criar tabelas ou sequences, a mesma migration deve incluir os grants mínimos
 para os usuários consumidores, condicionados à existência das roles. Não use
 `ALTER DEFAULT PRIVILEGES`, pois ele também poderia expor a tabela interna
