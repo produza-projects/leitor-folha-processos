@@ -199,7 +199,12 @@ somente o cookie de sessão assinado `fp_session`, com `HttpOnly`, `Secure` e
 
 As rotas `/`, `/api/me` e `/buscar/{serial}` exigem login, e a consulta de PDF
 exige a client role `viewer`. `/healthz` permanece público para healthchecks. A
-sessão local dura uma hora e um novo login é solicitado ao expirar.
+sessão local dura, por padrão, 12 horas desde o login, sem prorrogação pelo uso.
+Configure `OIDC_SESSION_MAX_AGE=43200` (segundos) para esse prazo; a variável
+permite outra duração por ambiente. Ao expirar, a aplicação inicia novamente o
+fluxo de autenticação; uma sessão ainda ativa no Keycloak pode dispensar a senha.
+Sessões anteriores à implementação do horário de login exigem um novo login.
+As permissões são carregadas no login, sem revalidação contínua no Keycloak.
 
 O backend usa duas URLs para o mesmo realm:
 
