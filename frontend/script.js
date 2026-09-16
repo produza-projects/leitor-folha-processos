@@ -25,7 +25,8 @@ fetch("/api/me")
   .catch(() => showMessage("Não foi possível identificar o usuário.", "red"));
 
 function buscar() {
-  const serial = document.getElementById("serial").value.trim().slice(0, 7);
+  const valor = document.getElementById("serial").value.trim();
+  const serial = /^\d{4}\.\d{6}$/.test(valor) ? valor : valor.slice(0, 7);
   const message = document.getElementById("message");
 
   message.textContent = "";

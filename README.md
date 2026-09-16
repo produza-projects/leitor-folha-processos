@@ -1,15 +1,16 @@
 # Leitor de Folha de Processos
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-![Python](https://img.shields.io/badge/Python-3.12.10-blue?logo=python&logoColor=white)
-![FastAPI](https://img.shields.io/badge/FastAPI-0.110.0-009688?logo=fastapi&logoColor=white)
+![Python](https://img.shields.io/badge/Python-3.12-blue?logo=python&logoColor=white)
+![FastAPI](https://img.shields.io/badge/FastAPI-0.141.1-009688?logo=fastapi&logoColor=white)
 ![HTML5](https://img.shields.io/badge/HTML5-E34F26?logo=html5&logoColor=white)
 ![CSS3](https://img.shields.io/badge/CSS3-1572B6?logo=css3&logoColor=white)
 ![JavaScript](https://img.shields.io/badge/JavaScript-F7DF1E?logo=javascript&logoColor=black)
 ![Bootstrap](https://img.shields.io/badge/Bootstrap-5.3.3-7952B3?logo=bootstrap&logoColor=white)
 
 
-Aplicação web interna para consulta e visualização de folhas de processos em PDF através de OF (Ordem de Fabricação), via digitação manual ou leitura de QR Code.
+Aplicação web interna para consulta e visualização de folhas de processos em PDF
+por Ordem de Fabricação (OF), número serial ou código do produto.
 
 ## Índice
 
@@ -18,14 +19,18 @@ Aplicação web interna para consulta e visualização de folhas de processos em
 - [Tecnologias Utilizadas](#tecnologias-utilizadas)
 - [Instalação](#instalação)
 - [Migrations do Banco](#migrations-do-banco)
+- [Autenticação com Keycloak](#autenticação-com-keycloak)
 - [Publicação das Imagens](#publicação-das-imagens)
+- [Publicação com HTTPS via Traefik](#publicação-com-https-via-traefik)
 - [Como Usar](#como-usar)
 - [Estrutura Técnica](#estrutura-técnica)
+- [Testes](#testes)
 - [Licença](#licença)
 
 ## Sobre o Projeto
 
-O **Leitor de Folha de Processos** facilita o acesso rápido a documentos de processos produtivos através da consulta por OF (Ordem de Fabricação).
+O **Leitor de Folha de Processos** facilita o acesso rápido a documentos de
+processos produtivos por OF, número serial ou código do produto.
 
 ### Benefícios
 
@@ -35,8 +40,9 @@ O **Leitor de Folha de Processos** facilita o acesso rápido a documentos de pro
 
 ## Funcionalidades
 
-- Consulta por digitação manual da OF
-- Leitura de QR Code para acesso instantâneo
+- Consulta por OF de 7 dígitos
+- Consulta por número serial, utilizando os 7 primeiros dígitos como OF
+- Consulta por código do produto no formato `0000.000000`
 - Visualização de PDF diretamente no navegador
 - Interface responsiva
 - Login centralizado pelo Keycloak em ambientes gerenciados
@@ -45,8 +51,8 @@ O **Leitor de Folha de Processos** facilita o acesso rápido a documentos de pro
 ## Tecnologias Utilizadas
 
 ### Backend
-- **Python 3.12.10**
-- **FastAPI 0.110.0**
+- **Python 3.12**
+- **FastAPI 0.141.1**
 
 ### Frontend
 - **HTML5**
@@ -108,16 +114,22 @@ pip install -r requirements.txt
 
 ### 4. Configure as variáveis de ambiente
 
-Crie um arquivo `.env` na raiz do projeto com as credenciais do banco de dados:
+Crie um arquivo `.env` na raiz do projeto, tomando `.env.example` como base, e
+configure as credenciais do banco de dados:
+
 ```env
 POSTGRES_HOST=seu_host_postgres
 POSTGRES_PORT=5432
 POSTGRES_DATABASE=nome_do_banco
 POSTGRES_USERNAME=seu_usuario
 POSTGRES_PASSWORD=sua_senha
+OIDC_ENABLED=false
 ```
 
-> **Nota**: Solicite as credenciais ao administrador do sistema.
+> **Nota**: Solicite as credenciais ao administrador do sistema. Para execução
+> local sem Keycloak, mantenha `OIDC_ENABLED=false`. As demais variáveis OIDC
+> estão documentadas em `.env.example` e são obrigatórias quando a autenticação
+> estiver habilitada.
 
 ### 5. Execute a aplicação
 ```bash
@@ -153,6 +165,14 @@ make migrate-version
 Uma migration já aplicada é imutável. Mudanças futuras devem ser adicionadas em
 novos pares `.up.sql` e `.down.sql`; não edite `000001_initial_schema` depois de
 ela ter sido usada em qualquer ambiente compartilhado.
+
+A migration `000002_normalize_product_codes` remove espaços laterais dos códigos
+existentes depois de validar que não há formatos inválidos ou duplicidades
+lógicas. Em seguida, uma constraint garante que `caminhos.cod_produto` permaneça
+exatamente no formato `0000.000000`. Implante primeiro uma versão do
+`leitor-folha-processos-data-sync` que normalize os valores recebidos do
+Protheus; caso contrário, novas sincronizações serão corretamente rejeitadas
+pela constraint.
 
 Ao criar tabelas ou sequences, a mesma migration deve incluir os grants mínimos
 para os usuários consumidores, condicionados à existência das roles. Não use
@@ -289,17 +309,27 @@ docker compose \
 
 ## Como Usar
 
-### Digitação Manual
+### Valores aceitos
 
-1. Digite a OF no campo de entrada
-2. Pressione Enter ou clique em "Buscar"
-3. O PDF será exibido se existir
+- **OF:** exatamente 7 dígitos, por exemplo `2619006`.
+- **Número serial:** os 7 primeiros dígitos devem representar a OF. Qualquer
+  sequencial posterior é desconsiderado na consulta.
+- **Código do produto:** exatamente 4 dígitos, um ponto e mais 6 dígitos, por
+  exemplo `5000.001622` ou `5001.009867`.
 
-### QR Code
+O valor completo é primeiro comparado com o formato de código do produto
+`^\d{4}\.\d{6}$`. Quando houver correspondência, a consulta utiliza o código
+integral e igualdade exata em `caminhos.cod_produto`. Caso contrário, a
+aplicação mantém o comportamento de OF/serial e utiliza os 7 primeiros
+caracteres.
 
-1. Clique no botão de leitura de QR Code
-2. Escaneie o código
-3. O PDF será carregado automaticamente
+### Consulta
+
+1. Digite a OF, o número serial ou o código do produto no campo de entrada.
+2. Pressione Enter ou clique em **Buscar**.
+3. Quando encontrado, o PDF é aberto em uma nova aba do navegador.
+4. Quando não houver registro ou arquivo, a interface exibe a mensagem de erro
+   correspondente.
 
 ## Estrutura Técnica
 
@@ -318,10 +348,14 @@ docker compose \
                          (Serve PDF)
 ```
 
-1. Usuário insere OF
-2. Backend consulta caminho do PDF no PostgreSQL
-3. Backend localiza e lê o arquivo PDF na rede
-4. PDF é servido para visualização no navegador
+1. O usuário insere uma OF, um número serial ou um código do produto.
+2. A aplicação identifica códigos de produto antes de aplicar o corte de 7
+   caracteres usado por OF e serial.
+3. O backend consulta o PostgreSQL por igualdade exata em
+   `caminhos.cod_produto` ou pela OF em `ordens_fabricacao`.
+4. O backend obtém o caminho armazenado em `caminhos.caminho`.
+5. O arquivo é localizado no compartilhamento de rede e servido como PDF para
+   visualização no navegador.
 
 ### Banco de Dados
 
@@ -336,6 +370,29 @@ docker compose \
 | `ordens_fabricacao`   | `caminho_id`         | Referência para `caminhos`  |
 
 **Conexão**: psycopg2 + PostgreSQL (configurado via `.env`)
+
+## Testes
+
+Instale as dependências de desenvolvimento:
+
+```bash
+pip install -r requirements-dev.txt
+```
+
+Execute a suíte completa sem criar cache ou bytecode no diretório do projeto:
+
+```bash
+PYTHONDONTWRITEBYTECODE=1 python -m pytest -q -p no:cacheprovider
+```
+
+Para reproduzir também a auditoria de dependências executada pelo CI:
+
+```bash
+pip-audit --requirement requirements.txt
+```
+
+Os workflows de desenvolvimento e produção executam os testes e a auditoria
+antes da construção e publicação das imagens.
 
 ## Licença
 
