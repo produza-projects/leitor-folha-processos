@@ -4,6 +4,7 @@ import base64
 import hashlib
 import os
 import secrets
+import time
 from dataclasses import dataclass
 from hmac import compare_digest
 from typing import Any
@@ -61,7 +62,7 @@ class OIDCSettings:
                 "OIDC_POST_LOGOUT_REDIRECT_URI", ""
             ),
             required_role=os.getenv("OIDC_REQUIRED_ROLE", "viewer"),
-            session_max_age=int(os.getenv("OIDC_SESSION_MAX_AGE", "3600")),
+            session_max_age=int(os.getenv("OIDC_SESSION_MAX_AGE", "43200")),
             cookie_secure=_read_bool("OIDC_COOKIE_SECURE", True),
         )
         settings.validate()
@@ -202,6 +203,7 @@ class OIDCClient:
             "email": id_claims.get("email", ""),
             "roles": roles,
         }
+        request.session["authenticated_at"] = int(time.time())
         return self._safe_return_path(flow.get("return_to", "/"))
 
     def logout_response(self, request: Request) -> RedirectResponse:
@@ -259,12 +261,27 @@ class OIDCClient:
         return "/"
 
 
+def session_user(request: Request) -> dict[str, Any] | None:
+    user = request.session.get("user")
+    authenticated_at = request.session.get("authenticated_at")
+    now = time.time()
+    if (
+        not isinstance(user, dict)
+        or type(authenticated_at) is not int
+        or authenticated_at > now
+        or now - authenticated_at >= request.app.state.oidc_settings.session_max_age
+    ):
+        request.session.clear()
+        return None
+    return user
+
+
 async def require_user(request: Request) -> dict[str, Any]:
     settings: OIDCSettings = request.app.state.oidc_settings
     if not settings.enabled:
         return {"preferred_username": "local", "roles": [settings.required_role]}
-    user = request.session.get("user")
-    if not isinstance(user, dict):
+    user = session_user(request)
+    if user is None:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Autenticação necessária.")
     if settings.required_role not in user.get("roles", []):
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Permissão insuficiente.")
