@@ -6,7 +6,7 @@ from dotenv import load_dotenv
 import os
 from typing import Any
 
-from .auth import OIDCClient, OIDCSettings, require_user
+from .auth import OIDCClient, OIDCSettings, require_user, session_user
 from .service.folha_processos_services import buscar as buscar_pdf
 
 load_dotenv()
@@ -45,7 +45,7 @@ async def healthz():
 
 @router.get("/", include_in_schema=False)
 async def index(request: Request):
-    if request.app.state.oidc_settings.enabled and not request.session.get("user"):
+    if request.app.state.oidc_settings.enabled and session_user(request) is None:
         return RedirectResponse("/login", status_code=302)
     return FileResponse(os.path.join(FRONTEND_PATH, "index.html"))
 

@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import time
+import base64
+import json
 from urllib.parse import parse_qs, urlparse
 from unittest.mock import patch
 
@@ -9,6 +11,7 @@ import httpx
 from fastapi import HTTPException
 from joserfc import jwt
 from joserfc.jwk import RSAKey
+from itsdangerous import TimestampSigner
 
 from backend.auth import OIDCClient, OIDCSettings
 from backend.main import create_app
@@ -25,7 +28,7 @@ def oidc_settings(**overrides) -> OIDCSettings:
         "redirect_uri": "https://fp-dev.produza.ind.br/auth/callback",
         "post_logout_redirect_uri": "https://fp-dev.produza.ind.br/",
         "required_role": "viewer",
-        "session_max_age": 3600,
+        "session_max_age": 43200,
         "cookie_secure": True,
     }
     values.update(overrides)
@@ -168,6 +171,7 @@ async def test_callback_creates_minimal_session_for_viewer():
 
     assert response.status_code == 302
     assert response.headers["location"] == "/"
+    assert "Max-Age=43200" in response.headers["set-cookie"]
     assert me.status_code == 200
     assert me.json() == {
         "sub": "user-123",
@@ -216,3 +220,69 @@ async def test_pdf_route_requires_authentication_before_database_access():
     settings = oidc_settings()
     async with application_client(create_app(settings)) as client:
         assert (await client.get("/buscar/1234567")).status_code == 401
+
+
+def test_session_duration_default_and_environment_override(monkeypatch):
+    monkeypatch.setenv("OIDC_ENABLED", "false")
+    monkeypatch.delenv("OIDC_SESSION_MAX_AGE", raising=False)
+    assert OIDCSettings.from_env().session_max_age == 43200
+    monkeypatch.setenv("OIDC_SESSION_MAX_AGE", "1800")
+    assert OIDCSettings.from_env().session_max_age == 1800
+    monkeypatch.setenv("OIDC_SESSION_MAX_AGE", "0")
+    with pytest.raises(ValueError, match="greater than zero"):
+        OIDCSettings.from_env()
+
+
+def session_cookie(settings, **extra):
+    payload = {"user": {"sub": "user-123", "roles": ["viewer"]}, **extra}
+    return TimestampSigner(settings.session_secret).sign(
+        base64.b64encode(json.dumps(payload).encode())
+    ).decode()
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("duration", [43200, 1800])
+async def test_session_expires_from_login_even_with_recent_cookie(duration):
+    settings = oidc_settings(session_max_age=duration)
+    logged_in_at = int(time.time())
+    async with application_client(create_app(settings)) as client:
+        client.cookies.set("fp_session", session_cookie(
+            settings, authenticated_at=logged_in_at
+        ))
+        with patch("backend.auth.time.time", return_value=logged_in_at + duration - 1):
+            assert (await client.get("/api/me")).status_code == 200
+            assert (await client.get("/", follow_redirects=False)).status_code == 200
+
+        # A cookie reissued near expiration must not extend the login deadline.
+        for route, expected_status in [("/api/me", 401), ("/buscar/1234567", 401), ("/", 302)]:
+            client.cookies.clear()
+            client.cookies.set("fp_session", session_cookie(
+                settings, authenticated_at=logged_in_at
+            ))
+            with patch("backend.auth.time.time", return_value=logged_in_at + duration):
+                response = await client.get(route, follow_redirects=False)
+            assert response.status_code == expected_status
+            if route == "/":
+                assert response.headers["location"] == "/login"
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("extra", [{}, {"authenticated_at": "invalid"}, {"authenticated_at": 99999999999}])
+async def test_legacy_or_invalid_session_requires_login(extra):
+    settings = oidc_settings()
+    async with application_client(create_app(settings)) as client:
+        client.cookies.set("fp_session", session_cookie(settings, **extra))
+        assert (await client.get("/api/me")).status_code == 401
+
+
+@pytest.mark.anyio
+async def test_logout_clears_local_session():
+    settings = oidc_settings()
+    async with application_client(create_app(settings)) as client:
+        client.cookies.set("fp_session", session_cookie(
+            settings, authenticated_at=int(time.time())
+        ), domain="fp-dev.produza.ind.br", path="/")
+        response = await client.get("/logout", follow_redirects=False)
+        assert response.status_code == 302
+        assert response.headers["location"].startswith(settings.public_issuer)
+        assert (await client.get("/api/me")).status_code == 401
